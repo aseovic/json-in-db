@@ -46,11 +46,14 @@ import oracle.sql.json.OracleJsonGenerator;
 import oracle.sql.json.OracleJsonObject;
 import oracle.sql.json.OracleJsonValue;
 import oracle.sql.json.OracleJsonValue.OracleJsonType;
+import site.ycsb.Client;
 
 /**
  * SODA adapter for YCSB. 
  */
 public class SodaClient extends DB {
+
+  private static volatile boolean fInitialized = false;
 
   private OracleJsonFactory factory;
   
@@ -70,12 +73,12 @@ public class SodaClient extends DB {
     factory = new OracleJsonFactory();
     baos = new ByteArrayOutputStream();
     Properties props = getProperties();
-    String url = props.getProperty("soda.url");
+    String url = props.getProperty("db.url");
     if (url == null) {
-      throw new IllegalStateException("soda.url not specified");
+      throw new IllegalStateException("db.url not specified");
     }
-    String usr = props.getProperty("soda.user");
-    String pwd = props.getProperty("soda.password");
+    String usr = props.getProperty("db.user");
+    String pwd = props.getProperty("db.password");
     int batchSize = Integer.parseInt(props.getProperty("batchsize", "1"));
     if (batchSize != 1) {
       throw new UnsupportedOperationException(); // todo
@@ -101,11 +104,17 @@ public class SodaClient extends DB {
       con.setImplicitCachingEnabled(true);
       con.setStatementCacheSize(1000);
 
-      String tbl = props.getProperty("table");
-      String metadata_string = "{\"keyColumn\" : {\"name\" : \"ID\",\"sqlType\" : \"VARCHAR2\",\"maxLength\" : 255,\"assignmentMethod\" : \"CLIENT\"}, \"contentColumn\" : {\"name\" : \"JSON_DOCUMENT\",\"sqlType\" : \"BLOB\"}, \"versionColumn\" : {\"name\" : \"VERSION\",\"method\" : \"UUID\"}, \"lastModifiedColumn\" : {\"name\" : \"LAST_MODIFIED\"},\"creationTimeColumn\" : {\"name\" : \"CREATED_ON\"},\"readOnly\" : false}";
-      OracleDocument collMeta = db.createDocumentFromString(metadata_string);
-      System.out.println("Using Metadata:" + collMeta.getContentAsString());
-      db.admin().createCollection(tbl, collMeta);
+      String table = props.getProperty("table");
+      boolean fLoad = !Boolean.parseBoolean(props.getProperty(Client.DO_TRANSACTIONS_PROPERTY));
+      if (!fInitialized && fLoad) {
+        OracleCollection col = db.openCollection(table);
+        if (col != null) {
+          System.out.println("DROPPING: " + table);
+          col.admin().drop();
+        }
+        fInitialized = true;
+      }
+      ensureCollection(db, table);
     } catch (OracleException e) {
       throw new DBException(e);
     } catch (SQLException e) {
@@ -221,7 +230,22 @@ public class SodaClient extends DB {
       return Status.ERROR;
     }
   }
-  
+
+  private static OracleCollection ensureCollection(OracleDatabase db, String name)
+          throws OracleException
+      {
+      OracleCollection col = db.openCollection(name);
+      if (col == null)
+          {
+          String metadata_string = "{\"keyColumn\" : {\"name\" : \"ID\",\"sqlType\" : \"VARCHAR2\",\"maxLength\" : 255,\"assignmentMethod\" : \"CLIENT\"}, \"contentColumn\" : {\"name\" : \"JSON_DOCUMENT\",\"sqlType\" : \"BLOB\"}, \"versionColumn\" : {\"name\" : \"VERSION\",\"method\" : \"UUID\"}, \"lastModifiedColumn\" : {\"name\" : \"LAST_MODIFIED\"},\"creationTimeColumn\" : {\"name\" : \"CREATED_ON\"},\"readOnly\" : false}";
+          OracleDocument metadata = db.createDocumentFromString(metadata_string);
+          System.out.println("Using Metadata:" + metadata.getContentAsString());
+          db.admin().createCollection(name, metadata);
+          col = db.admin().createCollection(name, metadata);
+          }
+      return col;
+      }
+
   private void documentToMap(OracleDocument res, Map<String, ByteIterator> result) throws OracleException {
     OracleJsonObject obj = res.getContentAs(OracleJsonObject.class);
     for (String key : obj.keySet()) {
