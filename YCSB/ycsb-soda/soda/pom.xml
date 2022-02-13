@@ -90,7 +90,7 @@ LICENSE file.
                   <goal>copy-dependencies</goal>
                 </goals>
                 <configuration>
-	          <outputDirectory>${project.build.direcotry}/dependency</outputDirectory>
+	          <outputDirectory>${project.build.directory}/dependency</outputDirectory>
                   <includeScope>runtime</includeScope>
                 </configuration>
               </execution>
