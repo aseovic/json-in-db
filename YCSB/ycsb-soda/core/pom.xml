@@ -72,6 +72,20 @@ LICENSE file.
   
   <profiles>
     <profile>
+     <id>container</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.google.cloud.tools</groupId>
+            <artifactId>jib-maven-plugin</artifactId>
+            <configuration>
+              <skip>true</skip>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
       <!-- Build profile when running via yscb.sh or yscb.bat-->
       <id>source-run</id>
       <build>
