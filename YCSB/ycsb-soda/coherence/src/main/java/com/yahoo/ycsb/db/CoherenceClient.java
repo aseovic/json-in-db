@@ -23,13 +23,8 @@ import com.yahoo.ycsb.DBException;
 import com.yahoo.ycsb.Status;
 import com.yahoo.ycsb.StringByteIterator;
 import java.sql.SQLException;
-import oracle.jdbc.OracleConnection;
 import oracle.jdbc.pool.OracleDataSource;
-import oracle.soda.OracleCollection;
-import oracle.soda.OracleDatabase;
-import oracle.soda.OracleDocument;
 import oracle.soda.OracleException;
-import oracle.soda.rdbms.OracleRDBMSClient;
 import oracle.sql.json.OracleJsonFactory;
 import oracle.sql.json.OracleJsonObject;
 import oracle.sql.json.OracleJsonValue;
@@ -37,11 +32,9 @@ import oracle.sql.json.OracleJsonValue.OracleJsonType;
 import site.ycsb.Client;
 
 import com.tangosol.net.Coherence;
-import com.tangosol.net.CoherenceSession;
 import com.tangosol.net.NamedCache;
 import com.tangosol.net.Session;
 
-import com.tangosol.util.BinaryEntry;
 import com.tangosol.util.InvocableMap;
 
 import java.util.HashMap;
@@ -56,6 +49,7 @@ import java.util.Vector;
 public class CoherenceClient
         extends DB
     {
+    private final static Object OBJECT = new Object();
     private static volatile boolean fInitialized = false;
 
     private OracleJsonFactory factory;
@@ -68,71 +62,33 @@ public class CoherenceClient
         }
 
     @Override
-    public void init() throws DBException
+    public void init()
         {
-        Coherence.clusterMember().start().join();
-        session = Coherence.getInstance().getSession();
-        factory = new OracleJsonFactory();
-        Properties props = getProperties();
-        int batchSize = Integer.parseInt(props.getProperty("batchsize", "1"));
-        if (batchSize != 1)
+        Properties props;
+        synchronized (OBJECT)
             {
-            throw new UnsupportedOperationException(); // todo
+            Coherence coherence = Coherence.getInstance();
+            if (coherence == null)
+                {
+                Coherence.clusterMember().start().join();
+                }
+            session = Coherence.getInstance().getSession();
+            factory = new OracleJsonFactory();
+            props = getProperties();
+            int batchSize = Integer.parseInt(props.getProperty("batchsize", "1"));
+            if (batchSize != 1)
+                {
+                throw new UnsupportedOperationException(); // todo
+                }
             }
 
-        try
+        String table = props.getProperty("table");
+        boolean fLoad = !Boolean.parseBoolean(props.getProperty(Client.DO_TRANSACTIONS_PROPERTY));
+        if (!fInitialized && fLoad)
             {
-            String usr = props.getProperty("db.user");
-            String pwd = props.getProperty("db.password");
-            String url = props.getProperty("db.url");
-            if (url == null)
-                {
-                throw new IllegalStateException("db.url not specified");
-                }
-            OracleDataSource ds = new OracleDataSource();
-            if (usr != null)
-                {
-                ds.setUser(usr);
-                }
-            if (pwd != null)
-                {
-                ds.setPassword(pwd);
-                }
-            ds.setURL(url);
-
-            //OracleConnection con = (OracleConnection) ds.getConnection();
-            Properties cprops = new Properties();
-            cprops.put("oracle.soda.sharedMetadataCache", "true");
-            cprops.put("oracle.soda.localMetadataCache", "true");
-            OracleRDBMSClient client = new OracleRDBMSClient(cprops);
-
-            //OracleDatabase db = client.getDatabase(con);
-            OracleDatabase db = null;
-
-            String table = props.getProperty("table");
-            boolean fLoad = !Boolean.parseBoolean(props.getProperty(Client.DO_TRANSACTIONS_PROPERTY));
-            if (!fInitialized && fLoad)
-                {
-                clearTable(db, table);
-                fInitialized = true;
-                }
-            //ensureCollection(client, db, table);
-            }
-        catch (OracleException | SQLException e)
-            {
-            throw new DBException(e);
-            }
-        }
-
-    private void clearTable(OracleDatabase db, String table)
-            throws OracleException
-        {
-        //OracleCollection col = db.openCollection(table);
-        //if (col != null)
-        //    {
             clearCoherenceCache(table);
-            //col.admin().drop();
-            //}
+            fInitialized = true;
+            }
         }
 
     private void clearCoherenceCache(String sName)
@@ -144,38 +100,13 @@ public class CoherenceClient
             }
         }
 
-    /*
-    private static OracleCollection ensureCollection(OracleRDBMSClient client, OracleDatabase db, String name)
-            throws OracleException
-        {
-        OracleCollection col = db.openCollection(name);
-        if (col == null)
-            {
-            OracleDocument metadata = client.createMetadataBuilder()
-                    .keyColumnName("ID").keyColumnType("VARCHAR2").keyColumnMaxLength(255).keyColumnAssignmentMethod("CLIENT")
-                    .contentColumnName("JSON_DOCUMENT").contentColumnType("BLOB")
-                    .versionColumnName("VERSION").versionColumnMethod("UUID")
-                    .lastModifiedColumnName("LAST_MODIFIED")
-                    .creationTimeColumnName("CREATED_ON")
-                    //.creationTimeColumnName(null)
-                    .readOnly(false)
-                    .build();
-            //String metadata_string = "{\"keyColumn\" : {\"name\" : \"ID\",\"sqlType\" : \"VARCHAR2\",\"maxLength\" : 255,\"assignmentMethod\" : \"CLIENT\"}, \"contentColumn\" : {\"name\" : \"JSON_DOCUMENT\",\"sqlType\" : \"BLOB\"}, \"versionColumn\" : {\"name\" : \"VERSION\",\"method\" : \"UUID\"}, \"lastModifiedColumn\" : {\"name\" : \"LAST_MODIFIED\"},\"creationTimeColumn\" : {\"name\" : \"CREATED_ON\"},\"readOnly\" : false}";
-            //OracleDocument metadata = db.createDocumentFromString(metadata_string);
-            System.out.println("Using Metadata:" + metadata.getContentAsString());
-            db.admin().createCollection(name, metadata);
-            col = db.admin().createCollection(name, metadata);
-            }
-        return col;
-        }
-    */
-
     @Override
     public void cleanup() throws DBException
         {
         try
             {
-            session.close();
+            // TODO: the last client thread should close session
+            //session.close();
             }
         catch (Exception e)
             {
@@ -234,16 +165,15 @@ public class CoherenceClient
                 {
                 OracleJsonObject trade = entry.getValue().asJsonObject();
 
-                //OracleJsonFactory factory = new OracleJsonFactory();
-                //OracleJsonObject obj = factory.createObject(trade.asJsonObject());
-                //OracleJsonObject obj = trade.asJsonObject();
+                OracleJsonFactory factory = new OracleJsonFactory();
+                OracleJsonObject obj = factory.createObject(trade);
 
                 for (Map.Entry<String, byte[]> updateEntry : arrays.entrySet())
                     {
-                    trade.put(updateEntry.getKey(), updateEntry.getValue());
+                    obj.put(updateEntry.getKey(), updateEntry.getValue());
                     }
 
-                entry.setValue(trade);
+                entry.setValue(obj);
                 return null;
                 });
 
