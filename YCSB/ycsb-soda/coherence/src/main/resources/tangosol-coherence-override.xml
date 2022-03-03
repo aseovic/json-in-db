@@ -5,7 +5,7 @@
            xsi:schemaLocation="http://xmlns.oracle.com/coherence/coherence-operational-config coherence-operational-config.xsd">
   <cluster-config>
     <member-identity>
-      <cluster-name system-property="tangosol.coherence.cluster">himzo</cluster-name>
+      <cluster-name system-property="tangosol.coherence.cluster">ycsb</cluster-name>
     </member-identity>
   </cluster-config>
 
@@ -13,7 +13,7 @@
     <init-params>
       <init-param>
         <param-type>java.lang.String</param-type>
-        <param-value system-property="coherence.cacheconfig">example-config.xml</param-value>
+        <param-value system-property="coherence.cacheconfig">ycsb-cache-config.xml</param-value>
       </init-param>
     </init-params>
   </configurable-cache-factory-config>

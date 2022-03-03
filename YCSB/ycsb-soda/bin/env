@@ -1,4 +1,4 @@
-export TNS_ADMIN=/Users/aseovic/.jsondb/coherence/jsondb1/
+export TNS_ADMIN=/Users/vasac/.jsondb/coherence/jsondb1/
 export DB_NAME=jsondb1_low
 export DB_USER=TEST
 export DB_PASSWORD=Coherence123

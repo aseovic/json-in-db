@@ -25,115 +25,40 @@ LICENSE file.
     <version>0.17.0</version>
   </parent>
 
-  <artifactId>coherence-binding</artifactId>
+  <artifactId>benchmark</artifactId>
   <name>Oracle Coherence Binding</name>
   <packaging>jar</packaging>
 
 
   <properties>
 <!--    <mainClass>io.helidon.microprofile.cdi.Main</mainClass>-->
-<!--    <container.repo>ghcr.io/oracle/ycsb-coherence</container.repo>-->
         <container.repo>kobajagi.net/oracle/ycsb-coherence</container.repo>
     <container.version>${project.version}</container.version>
     <jib.goal>dockerBuild</jib.goal>
 <!--    <jib.goal>buildTar</jib.goal>-->
 
     <!-- dependencies -->
-    <version.lib.coherence>21.12.2</version.lib.coherence>
     <version.plugin.jib>3.1.4</version.plugin.jib>
   </properties>
 
   <dependencies>
     <dependency>
-      <groupId>com.oracle.coherence.ce</groupId>
-      <artifactId>coherence</artifactId>
-      <version>21.12.2</version>
+      <groupId>com.yahoo.ycsb</groupId>
+      <artifactId>coherence-binding</artifactId>
+      <version>0.17.0</version>
     </dependency>
     <dependency>
-      <groupId>site.ycsb</groupId>
-      <artifactId>core</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <version>2.9.10.7</version>
-    </dependency>
-    <dependency>
-      <groupId>com.oracle.database.soda</groupId>
-      <artifactId>orajsoda</artifactId>
-      <version>1.1.7.1</version>
-    </dependency>
-    <dependency>
-      <groupId>com.oracle.database.jdbc</groupId>
-      <artifactId>ojdbc8</artifactId>
-      <version>21.5.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.oracle.database.jdbc</groupId>
-      <artifactId>ucp</artifactId>
-      <version>21.5.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.oracle.ojdbc</groupId>
-      <artifactId>oraclepki</artifactId>
-      <version>19.3.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.oracle.ojdbc</groupId>
-      <artifactId>osdt_core</artifactId>
-      <version>19.3.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.oracle.ojdbc</groupId>
-      <artifactId>osdt_cert</artifactId>
-      <version>19.3.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.oracle.coherence.jsondb</groupId>
-      <artifactId>coherence-json-db</artifactId>
-      <version>1.0.0-SNAPSHOT</version>
+      <groupId>com.yahoo.ycsb</groupId>
+      <artifactId>soda-binding</artifactId>
+      <version>0.17.0</version>
     </dependency>
   </dependencies>
 
   <profiles>
     <profile>
-      <!-- Build profile when running via yscb.sh or yscb.bat-->
-      <id>source-run</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-dependency-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>stage-dependencies</id>
-                <phase>prepare-package</phase>
-                <goals>
-                  <goal>copy-dependencies</goal>
-                </goals>
-                <configuration>
-	          <outputDirectory>${project.build.directory}/dependency</outputDirectory>
-                  <includeScope>runtime</includeScope>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-    <profile>
       <id>container</id>
       <build>
         <plugins>
-          <plugin>
-          <groupId>com.google.cloud.tools</groupId>
-          <artifactId>jib-maven-plugin</artifactId>
-            <configuration>
-              <skip>true</skip>
-            </configuration>
-          </plugin>
-<!--
           <plugin>
             <groupId>com.google.cloud.tools</groupId>
             <artifactId>jib-maven-plugin</artifactId>
@@ -141,12 +66,13 @@ LICENSE file.
             <configuration>
               <from>
                 <image>eclipse-temurin:11</image>
-&lt;!&ndash;                <image>gcr.io/distroless/java@sha256:9d4092ba5e1c9dc4d1490fdead1dd7ea5c64e635b729fee11a6af55f51b337f8</image>&ndash;&gt;
               </from>
               <to>
-                <image>${container.repo}-${project.artifactId}</image>
+<!--                <image>${container.repo}-${project.artifactId}</image>-->
+                <image>iad.ocir.io/odx-stateservice/ycsb/bench:latest</image>
                 <tags>
-                  <tag>${container.version}</tag>
+<!--                  <tag>${container.version}</tag>-->
+                  <tag>latest</tag>
                 </tags>
               </to>
               <extraDirectories>
@@ -177,14 +103,7 @@ LICENSE file.
               </extraDirectories>
               <container>
                 <entrypoint>/app/bin/bench.sh</entrypoint>
-&lt;!&ndash;
-                <entrypoint>/bin/bash</entrypoint>
-                <args>
-                  <arg>-c</arg>
-                  <arg>/app/bin/bench.sh</arg>
-                </args>
-&ndash;&gt;
-                &lt;!&ndash; good defaults intended for containers &ndash;&gt;
+                <!-- good defaults intended for containers -->
               </container>
               <containerizingMode>packaged</containerizingMode>
             </configuration>
@@ -197,12 +116,8 @@ LICENSE file.
               </execution>
             </executions>
           </plugin>
--->
         </plugins>
       </build>
     </profile>
-
   </profiles>
-
-
 </project>

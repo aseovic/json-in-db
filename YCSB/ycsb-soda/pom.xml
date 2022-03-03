@@ -20,6 +20,7 @@
     <module>core</module>
     <module>coherence</module>
     <module>soda</module>
+    <module>benchmark</module>
   </modules>
 
   <build>

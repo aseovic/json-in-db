@@ -109,7 +109,6 @@ public class SodaClient extends DB {
       if (!fInitialized && fLoad) {
         OracleCollection col = db.openCollection(table);
         if (col != null) {
-          System.out.println("DROPPING: " + table);
           col.admin().drop();
         }
         fInitialized = true;
@@ -191,7 +190,7 @@ public class SodaClient extends DB {
     try {
       OracleCollection collection = db.openCollection(table);
       OracleDocument upd = mapToDocument(key, values, false);
-      collection.find().key(key).mergeOne(upd);
+    collection.find().key(key).mergeOne(upd);
       return Status.OK;
     } catch (OracleException e) {
       e.printStackTrace();
@@ -208,7 +207,7 @@ public class SodaClient extends DB {
         throw new IllegalStateException("Inserting a null doc");
       }
       collection.insert(doc);
-      return Status.OK;
+    return Status.OK;
     } catch (OracleException e) {
       e.printStackTrace();
       return Status.ERROR;
