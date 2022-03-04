@@ -26,7 +26,7 @@ spec:
 #          imagePullPolicy: Never
           env:
             - name: JAVA_OPTS
-              value: "-verbose:gc -Xmx32G -Xms32G -Dcoherence.wka=coherence-ycsb-server-wka -Dcoherence.distributed.localstorage=false -Dcoherence.cacheconfig=ycsb-cache-config.xml -Djava.net.preferIPv4Stack=true"
+              value: "-verbose:gc -Xmx32G -Xms32G -Dcoherence.wka=coherence-ycsb-server-wka -Dcoherence.distributed.localstorage=false -Dtangosol.coherence.cluster=ycsb -Dcoherence.cacheconfig=ycsb-cache-config.xml  -Djava.net.preferIPv4Stack=true"
             - name: JAVA_CLASSPATH
               value: "/app/classpath/*:/app/libs/*"
             - name: CLIENT
