@@ -31,14 +31,12 @@ LICENSE file.
 
 
   <properties>
-<!--    <mainClass>io.helidon.microprofile.cdi.Main</mainClass>-->
-        <container.repo>kobajagi.net/oracle/ycsb-coherence</container.repo>
+    <container.repo>kobajagi.net/oracle/ycsb-coherence</container.repo>
     <container.version>${project.version}</container.version>
     <jib.goal>dockerBuild</jib.goal>
-<!--    <jib.goal>buildTar</jib.goal>-->
 
     <!-- dependencies -->
-    <version.plugin.jib>3.1.4</version.plugin.jib>
+    <version.plugin.jib>3.2.0</version.plugin.jib>
   </properties>
 
   <dependencies>

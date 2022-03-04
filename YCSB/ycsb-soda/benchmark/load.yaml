@@ -23,7 +23,7 @@ spec:
 #          imagePullPolicy: Never
           env:
             - name: JAVA_OPTS
-              value: "-verbose:gc -Xmx32G -Xms32G -Dtangosol.coherence.distributed.localstorage=false -Dtangosol.pof.enabled=true -Dcoherence.pof.config=cache-pof-config.xml -Djava.net.preferIPv4Stack=true -Dtangosol.coherence.wka=coherence-ycsb-server-wka"
+              value: "-verbose:gc -Xmx32G -Xms32G -Dcoherence.wka=coherence-ycsb-server-wka -Dcoherence.distributed.localstorage=false -Dcoherence.cacheconfig=ycsb-cache-config.xml -Djava.net.preferIPv4Stack=true"
             - name: JAVA_CLASSPATH
               value: "/app/classpath/*:/app/libs/*"
             - name: CLIENT

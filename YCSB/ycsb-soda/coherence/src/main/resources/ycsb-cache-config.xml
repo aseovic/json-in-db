@@ -3,58 +3,75 @@
 <cache-config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
               xmlns="http://xmlns.oracle.com/coherence/coherence-cache-config"
               xsi:schemaLocation="http://xmlns.oracle.com/coherence/coherence-cache-config coherence-cache-config.xsd">
-<caching-scheme-mapping>
-  <cache-mapping>
-    <cache-name>YCSB</cache-name>
-    <scheme-name>ycsb</scheme-name>
-  </cache-mapping>
-</caching-scheme-mapping>
+  <defaults>
+    <serializer>
+      <instance>
+        <class-name>com.tangosol.io.pof.ConfigurablePofContext</class-name>
+        <init-params>
+          <init-param>
+            <param-type>string</param-type>
+            <param-value>ycsb-pof-config.xml</param-value>
+          </init-param>
+        </init-params>
+      </instance>
+    </serializer>
+  </defaults>
 
-<caching-schemes>
-  <distributed-scheme>
-    <scheme-name>ycsb</scheme-name>
-    <service-name>DistributedCache</service-name>
-    <!--        <thread-count>20</thread-count>-->
-    <thread-count-max>30</thread-count-max>
-    <thread-count-min>10</thread-count-min>
-    <backing-map-scheme>
-      <read-write-backing-map-scheme>
-        <internal-cache-scheme>
-          <local-scheme>
-            <unit-calculator>BINARY</unit-calculator>
-          </local-scheme>
-        </internal-cache-scheme>
-        <cachestore-scheme>
-          <class-scheme>
-            <class-name>com.oracle.coherence.jsondb.OracleDocumentStore
-            </class-name>
-            <init-params>
-              <init-param>
-                <param-type>com.tangosol.net.BackingMapManagerContext</param-type>
-                <param-value>{manager-context}</param-value>
-              </init-param>
-              <init-param>
-                <param-type>string</param-type>
-                <param-value>${DB_NAME}</param-value>
-              </init-param>
-              <init-param>
-                <param-type>string</param-type>
-                <param-value>${DB_TABLE}</param-value>
-              </init-param>
-              <init-param>
-                <param-type>string</param-type>
-                <param-value>${DB_USER}</param-value>
-              </init-param>
-              <init-param>
-                <param-type>string</param-type>
-                <param-value>${DB_PASSWORD}</param-value>
-              </init-param>
-            </init-params>
-          </class-scheme>
-        </cachestore-scheme>
-      </read-write-backing-map-scheme>
-    </backing-map-scheme>
-    <autostart>true</autostart>
-  </distributed-scheme>
-</caching-schemes>
+  <caching-scheme-mapping>
+    <cache-mapping>
+      <cache-name>YCSB</cache-name>
+      <scheme-name>json-db</scheme-name>
+    </cache-mapping>
+  </caching-scheme-mapping>
+
+  <caching-schemes>
+    <distributed-scheme>
+      <scheme-name>json-db</scheme-name>
+      <service-name>JsonDB</service-name>
+
+      <thread-count>40</thread-count>
+
+      <backing-map-scheme>
+        <read-write-backing-map-scheme>
+          <internal-cache-scheme>
+            <local-scheme>
+              <unit-calculator>BINARY</unit-calculator>
+            </local-scheme>
+          </internal-cache-scheme>
+          <cachestore-scheme>
+            <class-scheme>
+              <class-name>com.oracle.coherence.jsondb.OracleDocumentStore</class-name>
+              <init-params>
+                <init-param>
+                  <param-type>com.tangosol.net.BackingMapManagerContext</param-type>
+                  <param-value>{manager-context}</param-value>
+                </init-param>
+                <init-param>
+                  <param-type>string</param-type>
+                  <param-value>${DB_NAME}</param-value>
+                </init-param>
+                <init-param>
+                  <param-type>string</param-type>
+                  <param-value>${DB_TABLE}</param-value>
+                </init-param>
+                <init-param>
+                  <param-type>string</param-type>
+                  <param-value>${DB_USER}</param-value>
+                </init-param>
+                <init-param>
+                  <param-type>string</param-type>
+                  <param-value>${DB_PASSWORD}</param-value>
+                </init-param>
+              </init-params>
+            </class-scheme>
+          </cachestore-scheme>
+        </read-write-backing-map-scheme>
+      </backing-map-scheme>
+
+      <autostart>true</autostart>
+    </distributed-scheme>
+
+  </caching-schemes>
 </cache-config>
+
+
