@@ -1,14 +1,24 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: ycsb-runner
+  name: ycsb-load
 spec:
+  backoffLimit: 4
   template:
     spec:
       imagePullSecrets:
         - name: ocir-ycsb-secret
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: type
+                operator: In
+                values:
+                - client
       containers:
-        - name: ycsb-runner
+        - name: ycsb-load
           image: iad.ocir.io/odx-stateservice/ycsb/bench:latest
 #          imagePullPolicy: Never
           env:
@@ -24,9 +34,9 @@ spec:
               value: "small"
 #              value: "smaller"
             - name: THREADS
-              value: "10"
+              value: "40"
             - name: DB_NAME
-              value: jsondb1_low
+              value: jsondb1_tp
             - name: DB_USER
               value: TEST
             - name: DB_PASSWORD
@@ -34,7 +44,5 @@ spec:
             - name: DB_TABLE
               value: YCSB
             - name: COMMAND
-#              value: load
-              value: t
+              value: load
       restartPolicy: Never
-  backoffLimit: 4

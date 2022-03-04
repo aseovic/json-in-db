@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ycsb-run
+spec:
+  parallelism: 5
+  completions: 5
+  completionMode: Indexed
+  backoffLimit: 4
+  template:
+    spec:
+      imagePullSecrets:
+        - name: ocir-ycsb-secret
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: type
+                operator: In
+                values:
+                - client
+      containers:
+        - name: ycsb-run
+          image: iad.ocir.io/odx-stateservice/ycsb/bench:latest
+#          imagePullPolicy: Never
+          env:
+            - name: JAVA_OPTS
+              value: "-verbose:gc -Xmx32G -Xms32G -Dtangosol.coherence.distributed.localstorage=false -Dtangosol.pof.enabled=true -Dcoherence.pof.config=cache-pof-config.xml -Djava.net.preferIPv4Stack=true -Dtangosol.coherence.wka=coherence-ycsb-server-wka"
+            - name: JAVA_CLASSPATH
+              value: "/app/classpath/*:/app/libs/*"
+            - name: CLIENT
+              value: com.yahoo.ycsb.db.CoherenceClient
+#              value: com.yahoo.ycsb.db.SodaClient
+            - name: WORKLOAD
+#              value: "workloada"
+              value: "small"
+#              value: "smaller"
+            - name: THREADS
+              value: "40"
+            - name: DB_NAME
+              value: jsondb1_tp
+            - name: DB_USER
+              value: TEST
+            - name: DB_PASSWORD
+              value: Coherence123
+            - name: DB_TABLE
+              value: YCSB
+            - name: COMMAND
+              value: t
+      restartPolicy: Never

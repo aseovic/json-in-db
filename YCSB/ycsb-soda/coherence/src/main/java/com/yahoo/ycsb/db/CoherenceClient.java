@@ -16,19 +16,19 @@
  */
 package com.yahoo.ycsb.db;
 
+import com.oracle.coherence.jsondb.OracleJsonValueSerializer;
 import com.yahoo.ycsb.ByteArrayByteIterator;
 import com.yahoo.ycsb.ByteIterator;
 import com.yahoo.ycsb.DB;
 import com.yahoo.ycsb.DBException;
 import com.yahoo.ycsb.Status;
 import com.yahoo.ycsb.StringByteIterator;
-import java.sql.SQLException;
-import oracle.jdbc.pool.OracleDataSource;
-import oracle.soda.OracleException;
+
 import oracle.sql.json.OracleJsonFactory;
 import oracle.sql.json.OracleJsonObject;
 import oracle.sql.json.OracleJsonValue;
 import oracle.sql.json.OracleJsonValue.OracleJsonType;
+
 import site.ycsb.Client;
 
 import com.tangosol.net.Coherence;
@@ -49,10 +49,10 @@ import java.util.Vector;
 public class CoherenceClient
         extends DB
     {
-    private final static Object OBJECT = new Object();
-    private static volatile boolean fInitialized = false;
+    private static final Object OBJECT = new Object();
+    private static final OracleJsonFactory JSON_FACTORY = new OracleJsonFactory();
 
-    private OracleJsonFactory factory;
+    private static volatile boolean fInitialized = false;
 
     private Session session;
 
@@ -73,7 +73,6 @@ public class CoherenceClient
                 Coherence.clusterMember().start().join();
                 }
             session = Coherence.getInstance().getSession();
-            factory = new OracleJsonFactory();
             props = getProperties();
             int batchSize = Integer.parseInt(props.getProperty("batchsize", "1"));
             if (batchSize != 1)
@@ -154,26 +153,26 @@ public class CoherenceClient
         {
         try
             {
-            HashMap<String, byte[]> arrays = new HashMap<>();
+            HashMap<String, byte[]> updates = new HashMap<>();
             for (Map.Entry<String, ByteIterator> updateEntry : values.entrySet())
                 {
-                arrays.put(updateEntry.getKey(), updateEntry.getValue().toArray());
+                updates.put(updateEntry.getKey(), updateEntry.getValue().toArray());
                 }
 
             NamedCache<String, OracleJsonValue> cache = session.getCache(table);
             cache.invoke(key, (InvocableMap.EntryProcessor<String, OracleJsonValue, Object>) entry ->
                 {
-                OracleJsonObject trade = entry.getValue().asJsonObject();
+                OracleJsonObject value = entry.getValue().asJsonObject();
 
-                OracleJsonFactory factory = new OracleJsonFactory();
-                OracleJsonObject obj = factory.createObject(trade);
+                OracleJsonFactory factory = OracleJsonValueSerializer.FACTORY;
+                OracleJsonObject newValue = factory.createObject(value);
 
-                for (Map.Entry<String, byte[]> updateEntry : arrays.entrySet())
+                for (Map.Entry<String, byte[]> update : updates.entrySet())
                     {
-                    obj.put(updateEntry.getKey(), updateEntry.getValue());
+                    newValue.put(update.getKey(), update.getValue());
                     }
 
-                entry.setValue(obj);
+                entry.setValue(newValue);
                 return null;
                 });
 
@@ -245,7 +244,7 @@ public class CoherenceClient
 
     private OracleJsonValue mapToJsonValue(Map<String, ByteIterator> values)
         {
-        OracleJsonObject jsonObject = factory.createObject();
+        OracleJsonObject jsonObject = JSON_FACTORY.createObject();
         for (Map.Entry<String, ByteIterator> entry : values.entrySet())
             {
             jsonObject.put(entry.getKey(), entry.getValue().toArray());

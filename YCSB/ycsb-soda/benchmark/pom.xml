@@ -68,10 +68,8 @@ LICENSE file.
                 <image>eclipse-temurin:11</image>
               </from>
               <to>
-<!--                <image>${container.repo}-${project.artifactId}</image>-->
                 <image>iad.ocir.io/odx-stateservice/ycsb/bench:latest</image>
                 <tags>
-<!--                  <tag>${container.version}</tag>-->
                   <tag>latest</tag>
                 </tags>
               </to>
@@ -82,7 +80,7 @@ LICENSE file.
                     <into>/app/bin</into>
                   </path>
                   <path>
-                    <from>/Users/vasac/.jsondb/coherence/jsondb1</from>
+                    <from>${user.home}/.jsondb/coherence/jsondb1</from>
                     <into>/app/wallet</into>
                   </path>
                   <path>
@@ -103,7 +101,6 @@ LICENSE file.
               </extraDirectories>
               <container>
                 <entrypoint>/app/bin/bench.sh</entrypoint>
-                <!-- good defaults intended for containers -->
               </container>
               <containerizingMode>packaged</containerizingMode>
             </configuration>
