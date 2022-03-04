@@ -18,6 +18,8 @@ package com.yahoo.ycsb.db;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,7 +35,6 @@ import com.yahoo.ycsb.Status;
 import com.yahoo.ycsb.StringByteIterator;
 
 import oracle.jdbc.OracleConnection;
-import oracle.jdbc.pool.OracleDataSource;
 import oracle.soda.OracleCollection;
 import oracle.soda.OracleCursor;
 import oracle.soda.OracleDatabase;
@@ -46,6 +47,8 @@ import oracle.sql.json.OracleJsonGenerator;
 import oracle.sql.json.OracleJsonObject;
 import oracle.sql.json.OracleJsonValue;
 import oracle.sql.json.OracleJsonValue.OracleJsonType;
+import oracle.ucp.jdbc.PoolDataSource;
+import oracle.ucp.jdbc.PoolDataSourceFactory;
 import site.ycsb.Client;
 
 /**
@@ -57,13 +60,21 @@ public class SodaClient extends DB {
 
   private OracleJsonFactory factory;
   
-  private OracleConnection con;
-  
-  private OracleDatabase db;
+  private static Object pdsLock = new Object();
+
+  private static PoolDataSource PDS;
+
+  boolean poolCreated = false;
+
+  boolean validateConn = true;
+
+  int stmtCacheSize = 30;
   
   /** Reusable output buffer. */
   private ByteArrayOutputStream baos;
-  
+
+  private static OracleRDBMSClient CLIENT;
+
   public SodaClient() {
 
   }
@@ -73,6 +84,7 @@ public class SodaClient extends DB {
     factory = new OracleJsonFactory();
     baos = new ByteArrayOutputStream();
     Properties props = getProperties();
+    int poolSize = Integer.parseInt(props.getProperty("soda.cpoolsz"));
     String url = props.getProperty("db.url");
     if (url == null) {
       throw new IllegalStateException("db.url not specified");
@@ -85,54 +97,79 @@ public class SodaClient extends DB {
     }
 
     try {
-      OracleDataSource ds = new OracleDataSource();
-      if (usr != null) {
-        ds.setUser(usr);
-      }
-      if (pwd != null) {
-        ds.setPassword(pwd);
-      }
-      ds.setURL(url);
+      synchronized (pdsLock) {
+        if (!poolCreated) {
+          PDS = PoolDataSourceFactory.getPoolDataSource();
+          PDS.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
+          PDS.setURL(url);
+          if (usr != null) {
+            PDS.setUser(usr);
+          }
+          if (pwd != null) {
+            PDS.setPassword(pwd);
+          }
+          PDS.setInitialPoolSize(poolSize);
+          PDS.setMinPoolSize(poolSize);
+          PDS.setMaxPoolSize(poolSize);
+          PDS.setMaxStatements(stmtCacheSize);
+          PDS.setValidateConnectionOnBorrow(validateConn);
+          int reuse = 5000;
+          int idleTime = 1;
+          PDS.setSecondsToTrustIdleConnection(idleTime);
+          PDS.setMaxConnectionReuseCount(reuse);
+          PDS.setMaxConnectionReuseTime(900);
+          System.out.println("Connection Reuse:" + reuse + " Idle:" + idleTime);
+          System.out.println("Validate Connections:" + validateConn);
+          Properties connProps = new Properties();
+          connProps.put(OracleConnection.CONNECTION_PROPERTY_AUTOCOMMIT, "true");
+          PDS.setConnectionProperties(connProps);
+          poolCreated = true;
 
-      con = (OracleConnection)ds.getConnection();
-      Properties cprops = new Properties();
-      cprops.put("oracle.soda.sharedMetadataCache", "true");
-      cprops.put("oracle.soda.localMetadataCache", "true");
-      OracleRDBMSClient client = new OracleRDBMSClient(cprops);
-
-      db = client.getDatabase(con);
-      con.setImplicitCachingEnabled(true);
-      con.setStatementCacheSize(1000);
+          Properties cprops = new Properties();
+          cprops.put("oracle.soda.sharedMetadataCache", "true");
+          cprops.put("oracle.soda.localMetadataCache", "true");
+          CLIENT = new OracleRDBMSClient(cprops);
+        } else {
+          System.out.println("Pool already exists");
+        }
+      }
 
       String table = props.getProperty("table");
       boolean fLoad = !Boolean.parseBoolean(props.getProperty(Client.DO_TRANSACTIONS_PROPERTY));
-      if (!fInitialized && fLoad) {
-        OracleCollection col = db.openCollection(table);
-        if (col != null) {
-          col.admin().drop();
+      try(OracleConnection con = (OracleConnection) this.getConnection()) {
+        OracleDatabase db = CLIENT.getDatabase(con);
+        if (!fInitialized && fLoad) {
+          OracleCollection col = db.openCollection(table);
+          if (col != null) {
+            col.admin().drop();
+          }
+          fInitialized = true;
         }
-        fInitialized = true;
+        ensureCollection(db, table);
       }
-      ensureCollection(db, table);
-    } catch (OracleException e) {
-      throw new DBException(e);
-    } catch (SQLException e) {
+    } catch (OracleException | SQLException e) {
       throw new DBException(e);
     }
   }
-  
+
   @Override
   public void cleanup() throws DBException {
+    /*
     try {
       con.close();
     } catch (SQLException e) {
       throw new DBException(e);
     }
+    */
   }
 
-  @Override
-  public Status read(String table, String key, Set<String> fields, Map<String, ByteIterator> result) {
+@Override
+public Status read(String table, String key, Set<String> fields, Map<String, ByteIterator> result) {
+  OracleConnection con = null;
     try {
+      con = (OracleConnection) this.getConnection();
+      OracleDatabase db = CLIENT.getDatabase(con);
+
       OracleCollection collection = db.openCollection(table);
       OracleDocument res = collection.find().key(key).getOne();
       if (fields != null && !fields.isEmpty()) {
@@ -140,19 +177,26 @@ public class SodaClient extends DB {
       }
       if (res == null) {
         throw new IllegalStateException("read returned no document:" + key);
-      } else  {
+      }
+      else {
         documentToMap(res, result);
       }
       return Status.OK;
     } catch (OracleException e) {
       e.printStackTrace();
       return Status.ERROR;
+    } finally {
+      this.closeConnection(con);
     }
   }
 
   @Override
   public Status scan(String table, String startkey, int recordcount, Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+    OracleConnection con = null;
     try {
+      con = (OracleConnection) this.getConnection();
+      OracleDatabase db = CLIENT.getDatabase(con);
+
       OracleCollection collection = db.openCollection(table);
       OracleOperationBuilder builder = collection.find();
       if (startkey != null) {
@@ -163,70 +207,91 @@ public class SodaClient extends DB {
       }
       builder.limit(recordcount);
 
-      OracleCursor cursor = builder.getCursor();
-      while (cursor.hasNext()) {
-        OracleDocument document = cursor.next();
-        HashMap<String, ByteIterator> resultMap = new HashMap<String, ByteIterator>();
-        documentToMap(document, resultMap);
-        result.add(resultMap);
+      try (OracleCursor cursor = builder.getCursor()) {
+        while (cursor.hasNext()) {
+          OracleDocument document = cursor.next();
+          HashMap<String, ByteIterator> resultMap = new HashMap<String, ByteIterator>();
+          documentToMap(document, resultMap);
+          result.add(resultMap);
+        }
       }
-      cursor.close();
-      
+
       if (result.size() == 0) {
         throw new IllegalStateException("scan() produced 0 results.");
       }
       return Status.OK;
-    } catch (OracleException e) {
+    } catch (OracleException | IOException e) {
       e.printStackTrace();
       return Status.ERROR;
-    } catch (IOException e) {
-      e.printStackTrace();
-      return Status.ERROR;
+    }
+    finally {
+      this.closeConnection(con);
     }
   }
 
   @Override
   public Status update(String table, String key, Map<String, ByteIterator> values) {
+    OracleConnection con = null;
     try {
+      con = (OracleConnection) this.getConnection();
+      OracleDatabase db = CLIENT.getDatabase(con);
       OracleCollection collection = db.openCollection(table);
-      OracleDocument upd = mapToDocument(key, values, false);
-    collection.find().key(key).mergeOne(upd);
+      OracleDocument upd = mapToDocument(db, key, values, false);
+      collection.find().key(key).mergeOne(upd);
+      con.commit();
       return Status.OK;
-    } catch (OracleException e) {
+    } catch (Throwable e) {
       e.printStackTrace();
+      this.rollback(con);
       return Status.ERROR;
+    } finally {
+      this.closeConnection(con);
     }
   }
   
   @Override
   public Status insert(String table, String key, Map<String, ByteIterator> values) {
+    OracleConnection con = null;
     try {
+      con = (OracleConnection) this.getConnection();
+      OracleDatabase db = CLIENT.getDatabase(con);
       OracleCollection collection = db.openCollection(table);
-      OracleDocument doc = mapToDocument(key, values, true);
+      OracleDocument doc = mapToDocument(db, key, values, true);
       if (doc == null) {
         throw new IllegalStateException("Inserting a null doc");
       }
       collection.insert(doc);
-    return Status.OK;
-    } catch (OracleException e) {
+      con.commit();
+      return Status.OK;
+    } catch (Throwable e) {
       e.printStackTrace();
+      this.rollback(con);
       return Status.ERROR;
+    } finally {
+      closeConnection(con);
     }
   }
 
   @Override
   public Status delete(String table, String key) {
+    OracleConnection con = null;
     try {
+      con = (OracleConnection) this.getConnection();
+      OracleDatabase db = CLIENT.getDatabase(con);
       OracleCollection collection = db.openCollection(table);
       int count = collection.find().key(key).remove();
       if (count == 0) {
         System.out.println("Key to delete not found");
         return Status.NOT_FOUND;
       }
+      con.commit();
       return Status.OK;
-    } catch (OracleException e) {
+    } catch (Throwable e) {
       e.printStackTrace();
+      this.rollback(con);
       return Status.ERROR;
+    } finally {
+      closeConnection(con);
     }
   }
 
@@ -239,7 +304,6 @@ public class SodaClient extends DB {
           String metadata_string = "{\"keyColumn\" : {\"name\" : \"ID\",\"sqlType\" : \"VARCHAR2\",\"maxLength\" : 255,\"assignmentMethod\" : \"CLIENT\"}, \"contentColumn\" : {\"name\" : \"JSON_DOCUMENT\",\"sqlType\" : \"BLOB\"}, \"versionColumn\" : {\"name\" : \"VERSION\",\"method\" : \"UUID\"}, \"lastModifiedColumn\" : {\"name\" : \"LAST_MODIFIED\"},\"creationTimeColumn\" : {\"name\" : \"CREATED_ON\"},\"readOnly\" : false}";
           OracleDocument metadata = db.createDocumentFromString(metadata_string);
           System.out.println("Using Metadata:" + metadata.getContentAsString());
-          db.admin().createCollection(name, metadata);
           col = db.admin().createCollection(name, metadata);
           }
       return col;
@@ -258,8 +322,8 @@ public class SodaClient extends DB {
       }
     }
   }
-  
-  private OracleDocument mapToDocument(String key, Map<String, ByteIterator> values, boolean useBinary) throws OracleException {
+
+  private OracleDocument mapToDocument(OracleDatabase db, String key, Map<String, ByteIterator> values, boolean useBinary) throws OracleException {
     baos.reset();
     OracleJsonGenerator gen = useBinary ? 
         factory.createJsonBinaryGenerator(baos) :
@@ -275,4 +339,39 @@ public class SodaClient extends DB {
         db.createDocumentFromByteArray(key, baos.toByteArray());
   }
 
+  private Connection getConnection()
+    {
+    try
+      {
+      Connection con = PDS.getConnection();
+      con.setAutoCommit(false);
+      return con;
+      }
+    catch (SQLException e)
+      {
+      throw new RuntimeException(e);
+      }
+    }
+
+  private void closeConnection(Connection con)
+    {
+    try
+      {
+      if (con != null)
+        {
+        con.close();
+        }
+      }
+    catch (SQLException e)
+      {
+      throw new RuntimeException(e);
+      }
+    }
+
+  private void rollback(Connection con) {
+    try {
+      con.rollback();
+    } catch (SQLException var3) {
+    }
+    }
 }

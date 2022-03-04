@@ -13,4 +13,5 @@ java $JAVA_OPTS \
       -p db.user=$DB_USER \
       -p db.password=$DB_PASSWORD \
       -p table=$DB_TABLE \
+      -p soda.cpoolsz=$SODA_CPOOLSZ \
       -$COMMAND
