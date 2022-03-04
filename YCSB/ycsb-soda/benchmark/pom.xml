@@ -31,8 +31,8 @@ LICENSE file.
 
 
   <properties>
-    <container.repo>kobajagi.net/oracle/ycsb-coherence</container.repo>
-    <container.version>${project.version}</container.version>
+    <container.repo>iad.ocir.io/odx-stateservice/ycsb/bench</container.repo>
+    <container.version>latest</container.version>
     <jib.goal>dockerBuild</jib.goal>
 
     <!-- dependencies -->
@@ -66,9 +66,9 @@ LICENSE file.
                 <image>eclipse-temurin:11</image>
               </from>
               <to>
-                <image>iad.ocir.io/odx-stateservice/ycsb/bench:latest</image>
+                <image>${container.repo}</image>
                 <tags>
-                  <tag>latest</tag>
+                  <tag>${container.version}</tag>
                 </tags>
               </to>
               <extraDirectories>
