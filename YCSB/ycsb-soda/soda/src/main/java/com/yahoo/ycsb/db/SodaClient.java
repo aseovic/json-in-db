@@ -60,11 +60,11 @@ public class SodaClient extends DB {
 
   private OracleJsonFactory factory;
   
-  private static Object pdsLock = new Object();
+  private final static Object pdsLock = new Object();
 
   private static PoolDataSource PDS;
 
-  boolean poolCreated = false;
+  private static boolean poolCreated = false;
 
   boolean validateConn = true;
 
